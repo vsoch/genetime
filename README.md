@@ -32,6 +32,7 @@ genelist(genelist=mygenes,threshold=thresh,out.pdf=TRUE,out.name="/home/myfile.p
 Since there is a data file over 100MB, it cannot be stored on github, so you must download them separately.  First clone the repository
   
   git clone https://github.com/vsoch/genetime
+  mkdir genetime/data
   cd genetime/data
   
 Download the data file
