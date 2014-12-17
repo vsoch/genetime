@@ -10,13 +10,13 @@ genetime(genelist, thresh = 0.95, out.pdf = FALSE,
 \arguments{
 \item{genelist}{A list of gene symbol identifiers}
 
+\item{thresh}{The quantile of expression values to take per gene.  Default is 0.95}
+
 \item{out.pdf}{output pdf of temporal enrichment patterns, defaults to FALSE.  Default output name (set with out.name) is "genetime.pdf"}
 
 \item{out.name}{name of output pdf of temporal enrichment patterns, default is "genetime.pdf"}
 
 \item{iters}{Number of iterations for permutations to create null distributions,  Default is 1000}
-
-\item{threshold}{The quantile of expression values to take per gene.  Default is 0.95}
 }
 \description{
 This function will predict "important" time periods for a list of gene probes based on RNA-seq expression.
@@ -24,7 +24,7 @@ This function will predict "important" time periods for a list of gene probes ba
 \examples{
 mygenes = "ADNP" "AGAP2" "ANK2" "APH1A"
 thresh = 0.99
-genelist(genelist=mygenes,threshold=thresh,out.pdf=TRUE,out.name="/home/myfile.pdf")
+genetime(genelist=mygenes,thresh=thresh,out.pdf=TRUE,out.name="/home/myfile.pdf")
 }
 \keyword{enrichment}
 \keyword{gene}

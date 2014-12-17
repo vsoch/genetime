@@ -21,7 +21,7 @@ probePeaks = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf"
   colors = getColors()
       
   # A helper function to return threshold for each row
-  get_top_quantile = function(row) {
+  get_top_quantile = function(row,thresh) {
     qpos = quantile(row,thresh)
     return(qpos)
   }
@@ -71,7 +71,7 @@ probePeaks = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf"
     # Method: Max values in top thresh (quartile) of distribution
     
     # Try getting quantiles for top values
-    quantiles = apply(subset,1,get_top_quantile)
+    quantiles = apply(subset,1,get_top_quantile,thresh)
   
     # If any quantiles are == 0, set to impossibly large number
     quantiles[which(quantiles == 0)] = 99999

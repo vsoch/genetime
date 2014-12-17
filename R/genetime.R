@@ -2,7 +2,7 @@
 #'
 #' This function will predict "important" time periods for a list of gene probes based on RNA-seq expression.
 #' @param genelist A list of gene symbol identifiers
-#' @param threshold The quantile of expression values to take per gene.  Default is 0.95
+#' @param thresh The quantile of expression values to take per gene.  Default is 0.95
 #' @param iters Number of iterations for permutations to create null distributions,  Default is 1000
 #' @param out.pdf output pdf of temporal enrichment patterns, defaults to FALSE.  Default output name (set with out.name) is "genetime.pdf"
 #' @param out.name name of output pdf of temporal enrichment patterns, default is "genetime.pdf"
@@ -11,7 +11,7 @@
 #' @examples
 #' mygenes = "ADNP" "AGAP2" "ANK2" "APH1A"
 #' thresh = 0.99
-#' genelist(genelist=mygenes,threshold=thresh,out.pdf=TRUE,out.name="/home/myfile.pdf")
+#' genetime(genelist=mygenes,thresh=thresh,out.pdf=TRUE,out.name="/home/myfile.pdf")
 
 genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",iters=1000){
 
@@ -23,7 +23,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   par(xpd=TRUE)
   
   # First get raw times, regions, and genes for the set
-  raw = probePeaks(devgenes,thresh=thresh,out.pdf=out.pdf,out.name=out.name)
+  raw = probePeaks(genelist,thresh=thresh,out.pdf=out.pdf,out.name=out.name)
 
   # Get our region colors
   colors = getColors()
@@ -85,6 +85,9 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
 
   cat("Running permutations...\n")
   
+  # We are going to save p values for how well the null distributions fit negative binomial
+  negative_binomial_p = c()
+  
   # Create a null distribution for each region
   for (rr in 1:length(uniqueregions)){
     cat("region",rr,"of",length(uniqueregions),"\n")
@@ -103,27 +106,46 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
         nulldist[i,tt] = sum(shuffled_subset$value)    
       }
     }
-    
-    # Do shapiro test to test for normality
-    #sha = apply(nulldist, 2, shapiro.test)
-    #nor=0
-    #for (i in sha){
-    #  if ((i$p.value>0.05)==T){nor=nor+1}
-    #}    
   
+    # Fit null to a negative binomial, and calculate a p-value
     # Save pvalues in a vector to correct for 16 tests
     for (tt in 1:length(timepoints)){
       single_null_dist = nulldist[,tt]
-      confidence_intervals = mean(single_null_dist) + c(-1,1)*qnorm(0.95)*sd(single_null_dist)
       #hist(single_null_dist,col="purple",main=paste("Null Distribution timepoint",timepoints[tt]))
       #lines(rep(confidence_intervals[1],100),seq(1,100),col="red",lwd=2)
       #lines(rep(confidence_intervals[2],100),seq(1,100),col="red",lwd=2)
-      # Calculate Z score for our timepoint score
-      score = countmatrix[rr,tt]
-      z = (mean(single_null_dist)-score)/sd(single_null_dist)
-      # Get p value, single sided Z test
-      pvalue = 1-(pnorm(-abs(z),lower.tail=FALSE))
+      # Use glm.nb to fit a negative binomial to one of our nulls
+      # Round so we are using counts
+      nully = round(single_null_dist)
+      out = glm.nb(nully~1,link=identity)
+      # Here is the intercept
+      # coef(out)
+      # theta: this is the "dispersion parameter" which must control how wide it is?
+      theta = out$theta
+      summary = summary(out)
+      
+      # I *think* we can use this pvalue to see how well the model fits the data?
+      # (this confirms the null distrubution is modeled well by the binomial?)
+      # Let's save this value
+      negative_binomial_p = c(negative_binomial_p,summary$coefficients[4])
+      
+      # Now create a density with the      
+      bin = dnbinom(1:max(single_null_dist), mu=mean(single_null_dist), size=theta)
+      #par(mfrow=c(1,2))
+      #hist(nully,col="tomato",main="Actual null distribution")
+      
+      # Now calculate where the actual value is
+      actual = countmatrix[rr,tt]
+      
+      # I am SO close - I know I need to use the pnbinom function to get a pvalue, but I'm not sure what the input is.
+      # Get p value, single sided test
+      pvalue = pnbinom(actual, mu=mean(single_null_dist), size=theta,lower.tail=FALSE)      
       pvalue_matrix[rr,tt] = pvalue
+      #plot(bin,main=paste("NB Model w/ Actual Score, pvalue",pvalue),type="l")
+      #lines(rep(actual,3),c(0,.001,.002),col="red",lwd=5)
+      #cat ("Press [enter] to continue")
+      #line = readline()
+      
     }
   }
   
@@ -145,7 +167,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   # This will be a binary matrix
   bin = qvalues
   bin[is.nan(bin)] = -99
-  bin[bin>=0.05] = -99
+  bin[bin>=.25] = -99
   bin[bin!=-99] = 1
   bin[bin==-99] = 0
 
@@ -155,7 +177,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   pheatmap(bin,cluster_rows=FALSE,cluster_cols=FALSE,main="Corrected temporal enrichment map")
 
   # Calculate probability scores for each timepoint
-  probscores = colSums(sig) / nrow(sig)
+  probscores = colSums(bin) / nrow(bin)
 
   # Format the other matrices to return to user
   pvalue_matrix = formatMatrix(pvalue_matrix)
@@ -180,7 +202,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
 
   # Now plot!
   x = match(finallist$timepoint,colnames(interpolated$timeseries))
-  plot(x,finallist$value,col=regioncolor,pch=19,ylab="rna-seq expression",xaxt="n",main=paste("asd genes for significantly enriched timepoints and regions"),xlab="age",ylim=c(min(genetimes$value),max(genetimes$value)))
+  plot(x,finallist$value,col=colors,pch=19,ylab="rna-seq expression",xaxt="n",main=paste("asd genes for significantly enriched timepoints and regions"),xlab="age",ylim=c(min(genetimes$value),max(genetimes$value)))
   # Add the x axis
   axis(1,labels=timepoints,at=seq(1,length(timepoints)))
   # Now let's add text for genes
