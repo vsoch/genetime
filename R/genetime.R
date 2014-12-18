@@ -4,6 +4,7 @@
 #' @param genelist A list of gene symbol identifiers
 #' @param thresh The quantile of expression values to take per gene.  Default is 0.95
 #' @param iters Number of iterations for permutations to create null distributions,  Default is 1000
+#' @param fdr FDR correction to use (Default is 0.05)
 #' @param out.pdf output pdf of temporal enrichment patterns, defaults to FALSE.  Default output name (set with out.name) is "genetime.pdf"
 #' @param out.name name of output pdf of temporal enrichment patterns, default is "genetime.pdf"
 #' @keywords temporal gene enrichment
@@ -13,11 +14,12 @@
 #' thresh = 0.99
 #' genetime(genelist=mygenes,thresh=thresh,out.pdf=TRUE,out.name="/home/myfile.pdf")
 
-genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",iters=1000){
+genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",iters=1000,fdr=0.05){
 
   library(ade4)
   library(pheatmap)
   library(fields)
+  library(MASS)
   
   # So we can plot outside of main plot area
   par(xpd=TRUE)
@@ -82,7 +84,8 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   
   # We will save a matrix of pvalues
   pvalue_matrix = array(dim=c(length(uniqueregions),length(timepoints)))
-
+  qvalues = array(dim=c(length(uniqueregions),length(timepoints)))
+  
   cat("Running permutations...\n")
   
   # We are going to save p values for how well the null distributions fit negative binomial
@@ -109,6 +112,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   
     # Fit null to a negative binomial, and calculate a p-value
     # Save pvalues in a vector to correct for 16 tests
+    pvalues = c()
     for (tt in 1:length(timepoints)){
       single_null_dist = nulldist[,tt]
       #hist(single_null_dist,col="purple",main=paste("Null Distribution timepoint",timepoints[tt]))
@@ -140,18 +144,20 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
       # I am SO close - I know I need to use the pnbinom function to get a pvalue, but I'm not sure what the input is.
       # Get p value, single sided test
       pvalue = pnbinom(actual, mu=mean(single_null_dist), size=theta,lower.tail=FALSE)      
-      pvalue_matrix[rr,tt] = pvalue
+      pvalues = c(pvalues,pvalue)
       #plot(bin,main=paste("NB Model w/ Actual Score, pvalue",pvalue),type="l")
       #lines(rep(actual,3),c(0,.001,.002),col="red",lwd=5)
       #cat ("Press [enter] to continue")
       #line = readline()
-      
+      pvalue_matrix[rr,tt] = pvalue  
     }
+    # Now let's correct for multiple comparisons - we do for each row (region)
+    
+    qvalues[rr,] = p.adjust(pvalues,method="fdr")
   }
   
-  cat("Correcting...\n")  
-  # Now let's correct for multiple comparisons
-  qvalues = p.adjust(pvalue_matrix,method="fdr")
+  # Now let's correct for multiple comparisons - we do for each row (region)
+  # qvalues = apply(pvalue_matrix,1,p.adjust,method="fdr")
 
   # Plot p vs qvalues, all
   par(mfrow=c(1,2))
@@ -161,13 +167,10 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   cat ("Press [enter] to continue")
   line = readline()
   
-  # Which ones are significant?
-  qvalues = array(qvalues,dim=c(length(uniqueregions),length(timepoints)))
-
-  # This will be a binary matrix
+  # This will be a binary matrix of significant qvalues
   bin = qvalues
   bin[is.nan(bin)] = -99
-  bin[bin>=.25] = -99
+  bin[bin>=fdr] = -99
   bin[bin!=-99] = 1
   bin[bin==-99] = 0
 
