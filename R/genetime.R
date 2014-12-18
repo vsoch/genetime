@@ -4,7 +4,7 @@
 #' @param genelist A list of gene symbol identifiers
 #' @param thresh The quantile of expression values to take per gene.  Default is 0.95
 #' @param iters Number of iterations for permutations to create null distributions,  Default is 1000
-#' @param fdr FDR correction to use (Default is 0.05)
+#' @param bf bonferonni correction to use (Default is 0.05)
 #' @param out.pdf output pdf of temporal enrichment patterns, defaults to FALSE.  Default output name (set with out.name) is "genetime.pdf"
 #' @param out.name name of output pdf of temporal enrichment patterns, default is "genetime.pdf"
 #' @keywords temporal gene enrichment
@@ -14,15 +14,14 @@
 #' thresh = 0.99
 #' genetime(genelist=mygenes,thresh=thresh,out.pdf=TRUE,out.name="/home/myfile.pdf")
 
-genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",iters=1000,fdr=0.05){
+genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",iters=1000,bf=0.05){
 
-  library(ade4)
   library(pheatmap)
   library(fields)
   library(MASS)
   
   # So we can plot outside of main plot area
-  par(xpd=TRUE)
+  par(xpd=TRUE,new=FALSE)
   
   # First get raw times, regions, and genes for the set
   raw = probePeaks(genelist,thresh=thresh,out.pdf=out.pdf,out.name=out.name)
@@ -45,6 +44,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   }
 
   names(weights) = timepoints
+  par(mfrow=c(1,1))
   barplot(weights,main="weighted probes per timepoint, all regions, (sum of expression values)",col="tomato")
 
   cat ("Press [enter] to continue")
@@ -153,7 +153,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
     }
     # Now let's correct for multiple comparisons - we do for each row (region)
     
-    qvalues[rr,] = p.adjust(pvalues,method="fdr")
+    qvalues[rr,] = p.adjust(pvalues,method="bonferroni")
   }
   
   # Now let's correct for multiple comparisons - we do for each row (region)
@@ -170,7 +170,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   # This will be a binary matrix of significant qvalues
   bin = qvalues
   bin[is.nan(bin)] = -99
-  bin[bin>=fdr] = -99
+  bin[bin>=bf] = -99
   bin[bin!=-99] = 1
   bin[bin==-99] = 0
 
@@ -187,7 +187,7 @@ genetime = function(genelist,thresh=0.95,out.pdf=FALSE,out.name="genetime.pdf",i
   qvalues = formatMatrix(qvalues)
   
   par(mfrow=c(1,1))
-  image.plot(cbind(probscores,probscores),yaxt="n",xaxt="n",lab.breaks=timepoints,main="Temporal probability scores for probes being active")
+  image.plot(cbind(probscores,probscores),yaxt="n",xaxt="n",lab.breaks=timepoints,main="Temporal Probability Scores for Probe Set Influence",sub="Percentage of Brain Areas With Significant Enrichment")
   axis(1,labels=timepoints,seq(0,1,by =((1 - 0)/(length(timepoints) - 1))),pos=.1)
   cat ("Press [enter] to continue")
   line = readline()

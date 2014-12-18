@@ -3,6 +3,6 @@ Title: Temporal (Developmental) Enrichment of Gene Sets
 Version: 0.1
 Authors@R: "Vanessa Sochat <vsochat@stanford.edu> [aut, cre]"
 Description: genetime: extract genomic features to predict "important" time periods for developmental processes and disorders.  The current database includes RNA-seq, and lookup is by the gene symbol associated with the probe.  You give me a list of genes, I give you back probe identifiers, brain regions, and timepoints.
-Depends: R (>= 3.0.2), pheatmap, ade4, fields
+Depends: R (>= 3.0.2), pheatmap, fields, MASS
 License: What license is it under?
 LazyData: true

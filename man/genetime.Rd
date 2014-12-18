@@ -5,7 +5,7 @@
 \title{genetime}
 \usage{
 genetime(genelist, thresh = 0.95, out.pdf = FALSE,
-  out.name = "genetime.pdf", iters = 1000, fdr = 0.05)
+  out.name = "genetime.pdf", iters = 1000, bf = 0.05)
 }
 \arguments{
 \item{genelist}{A list of gene symbol identifiers}
@@ -18,7 +18,7 @@ genetime(genelist, thresh = 0.95, out.pdf = FALSE,
 
 \item{iters}{Number of iterations for permutations to create null distributions,  Default is 1000}
 
-\item{fdr}{FDR correction to use (Default is 0.05)}
+\item{bf}{bonferonni correction to use (Default is 0.05)}
 }
 \description{
 This function will predict "important" time periods for a list of gene probes based on RNA-seq expression.
